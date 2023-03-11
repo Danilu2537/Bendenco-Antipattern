@@ -1,41 +1,60 @@
-from classes import Store, Shop, Request, BadRequest
+from class_request import Request
+from class_shop import Shop
+from class_storage import Storage
+from exceptions import BadRequest, NoGoodsInStorage, NotEnoughGoods, NotEnoughSpace, MaxUniqueItemsInStorage
 
 
 def main():
     print('Welcome to the Logistics App!')
-    print('Отправьте запрос в формате:'
-          ' "Доставить 5 бананы со склада в магазин" или "Курьер берёт 3 кофе из магазина"\n')
+    print('Отправьте запрос в формате: "Доставить 5 бананы из склад в магазин"\n')
 
     while True:
         user_input = input()
-        request = None
+
         try:
-            request = Request(user_input)
-        except BadRequest as e:
-            print(f'{e}\nПопробуйте отправить запрос заново в верном формате!\n')
-        if request:
-            from_, to_, product, amount = request.get_data
-            if 'склад' in from_:
-                delivery_path = (storage, shop)
-            else:
-                delivery_path = (shop, storage)
-            if delivery_path[0].remove(product.capitalize(), amount):
-                if not delivery_path[1].add(product.capitalize(), amount):
-                    delivery_path[0].add(product.capitalize(), amount)
-                else:
-                    print(f'Нужное количество есть {"на" if from_ == "склад" else "в"} {from_}е')
-                    print(f'Курьер забрал {amount} {product} {"со" if from_ == "склад" else "из"} {from_}а')
-                    print(f'Курьер везёт {amount} {product} из {from_}а {"на" if to_ == "склад" else "в"} {to_}')
-                    print(f'Курьер доставил {amount} {product} {"на" if to_ == "склад" else "в"} {to_}\n')
-                    print('*' * 20)
-                    print(storage)
-                    print('*' * 20)
-                    print(shop)
-                    print('*' * 20)
+            request = Request(user_input, storages)
+        except BadRequest as error:
+            print(error.message)
+            continue
+
+        delivery_from = storages[request.from_storage]
+        delivery_to = storages[request.to_storage]
+
+        # Try to get goods from a storage 1
+        try:
+            delivery_from.remove(request.product.capitalize(), request.amount)
+        except (NoGoodsInStorage, NotEnoughGoods) as error:
+            print(error.message)
+            continue
+
+        # Try to deliver goods from a storage 1 to a storage 2.
+        # If not possible returns goods back to a storage 1
+        try:
+            delivery_to.add(request.product.capitalize(), request.amount)
+        except (NotEnoughSpace, MaxUniqueItemsInStorage) as error:
+            delivery_from.add(request.product.capitalize(), request.amount)
+            print(error.message)
+            continue
+
+        print(f'Нужное количество есть в {request.from_storage}')
+        print(f'Курьер забрал {request.amount} {request.product} из {request.from_storage}')
+        print(f'Курьер везёт {request.amount} {request.product} из {request.from_storage} в {request.to_storage}')
+        print(f'Курьер доставил {request.amount} {request.product} в {request.to_storage}\n')
+        print('*' * 20)
+        print(storage)
+        print('*' * 20)
+        print(shop)
+        print('*' * 20)
 
 
 if __name__ == '__main__':
-    storage = Store()
+    storage = Storage()
+    shop = Shop()
+
+    storages = {
+        'магазин': shop,
+        'склад': storage,
+    }
 
     storage.add('Масло', 10)
     storage.add('Макароны', 20)
@@ -45,8 +64,6 @@ if __name__ == '__main__':
     storage.add('Чай', 10)
     storage.add('Шоколад', 5)
     storage.add('Хлеб', 6)
-
-    shop = Shop()
 
     shop.add('Бананы', 5)
     shop.add('Кофе', 4)
